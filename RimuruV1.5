@@ -1,0 +1,863 @@
+#!/bin/bash
+
+
+# membuat folder work directory (folder kerja) untuk melakukan semua kegiatan p-
+# erhitungan
+mkdir WKDR
+
+mkdir fileinput
+mkdir fileoutput
+mkdir filedata
+
+# -------------------  JANGAN DI EDIT BAGIAN INI YA  ---------------------------
+# ------------------------------------------------------------------------------
+
+# membuat file sracsraccase.sh yang isinya dari << E0F sampai E0F
+cat > WKDR/sraccase.sh << EOF
+#!/bin/csh
+#
+#===============================================================================
+#
+#  <<  run SRAC  >>
+#
+#===============================================================================
+#  Test.sh : Test problem to check SRAC installation
+#            UO2 pin cell calculation in LWR next generation
+#            fuel benchmark (No burn-up)
+#  Options : Pij(Geometry type IGT=4), PEACO
+#===============================================================================
+#    
+# Fortran logical unit usage (allocate if you need)
+#
+#       The meaning of each file depends on sub-programs used in SRAC.
+#       [ ]:important files for users. 
+# 
+#   1   binary (ANISN,TWOTRAN,CIATION)
+#   2   binary (ANISN,CITATION), scratch
+#   3   binary (SRAC,ANISN,TWOTRAN,CITATION), scratch
+#   4   binary (PIJ,ANISN,TWOTRAN), scratch
+# [ 5]  text:80 standard input
+# [ 6]  text:137 standard output, monitoring message
+#   8   binary (ANISN,TWOTRAN), angular flux in TWOTRAN
+#   9   binary (TWOTRAN,CITATION)
+#               flux map in CITATION, angular flux in TWOTRAN
+#  10   binary (ANISN,TWOTRAN,CITATION), scratch
+#  11   binary (TWOTRAN,CITATION), Sn constants in TWOTRAN
+#  12   binary (TWOTRAN), restart file for TWOTRAN
+#  13   binary (TWOTRAN,CITATION), restart file for TWOTRAN & CITATION
+#  14   binary (TWOTRAN,CITATION), scratch
+#  15   binary (CITATION), scratch (fast I/O device may be effective)
+#  16   binary (CITATION), scratch
+#  17   binary (CITATION), fixed source in CITATION
+#  18   binary (CITATION), scratch
+#  19   binary (CITATION), scratch 
+#  20   binary (CITATION), scratch
+#  21   binary (PIJ), scratch
+#  22   binary (PIJ,CITATION), scratch
+#  26   binary (CITATION), scratch
+#  28   binary (CITATION), scratch
+#  31   text:80 (SRAC-CVMACT,CITATION), macro-XS interface for CITATION
+#  32   binary (PIJ,ANISN,TWOTRAN,TUD,CITATION)
+#               fixed source for TWOTRAN, power density map in CITATION 
+#  33   binary (PIJ,TWOTRAN,TUD), total flux in TWOTRAN & TUD
+#  49   device internally used to access PDS file
+# [50]  text:80 burnup chain library (SRAC-BURNUP) 
+#  52   binary (SRAC-BURNUP), scratch
+#  81   binary (PIJ), scratch
+#  82   binary (PIJ), scratch
+#  83   binary (PIJ), scratch
+#  84   binary (PIJ), scratch
+#  85   binary data table (PIJ), always required in PIJ
+# [89]  plot file : PostScript (SRAC-PEACO,PIJ)
+#  91   text:80 (CITATION), scratch
+#  92   binary (CITATION), scratch
+#  93   text:80 (SRAC-BURNUP), scratch
+#  95   text:80 (SRAC-DTLIST), scratch
+#  96   binary (SRAC-PEACO), scratch
+#  97   binary (SRAC-BURNUP), scratch
+# [98]  text:137 (SRAC-BURNUP) summary of burnup results
+# [99]  text:137 calculated results
+#
+#===============================================================================
+#
+   alias   mkdir mkdir
+   alias   cat   cat
+   alias   cd    cd
+   alias   rm    rm
+#
+#============= Set by user =====================================================
+#
+#  LMN    : executable command of SRAC (SRAC/bin/*)
+#  BRN    : burnup chain data          (SRAC/lib/burnlibT/*)
+#  ODR    : directory in which output data will be stored
+#  CASE   : case name which is refered as name of output files and PDS directory
+#  WKDR   : working directory in which scratch files will be made and deleted
+#  PDSD   : top directory name of PDS file
+#
+   set SRAC_DIR = ##HOME/SRAC
+   set LMN  = SRAC.100m
+   set BRN  = kodeRantaiBB
+   set ODR  = ##SRAC_DIR/smpl/outp
+   set CASE = namaKasus
+   set PDSD = ##SRAC_DIR/tmp
+#
+#=============  mkdir for PDS  =================================================
+#
+#  PDS_DIR : directory name of PDS files
+#  PDS file names must be identical with those in input data
+#
+   set PDS_DIR = ##PDSD/##CASE
+   mkdir ##PDS_DIR
+   mkdir ##PDS_DIR/UFAST
+   mkdir ##PDS_DIR/UTHERMAL
+   mkdir ##PDS_DIR/UMCROSS
+   mkdir ##PDS_DIR/MACROWRK
+   mkdir ##PDS_DIR/MACRO
+   mkdir ##PDS_DIR/FLUX
+   mkdir ##PDS_DIR/MICREF
+#  
+#=============  Change if you like =============================================
+#
+   set LM       = ##SRAC_DIR/bin/##LMN
+   set DATE     = ###date +%Y.%m.%d.%H.%M.%S###
+   set WKDR     = ##HOME/SRACtmp.##CASE.##DATE
+   mkdir ##WKDR
+#
+#-- File allocation
+#  fu89 is used in any plot options, fu98 is used in the burnup option
+#  Add other units if you would like to keep necessary files.
+   setenv  fu50  ##SRAC_DIR/lib/burnlibT/##BRN
+   setenv  fu85  ##SRAC_DIR/lib/kintab.dat
+#  setenv  fu89  ##ODR/##CASE.SFT89.##DATE
+   setenv  fu98  ##ODR/##CASE.##DATE.SFT98
+   setenv  fu99  ##ODR/##CASE.##DATE.SFT99
+   set OUTLST =  ##ODR/##CASE.##DATE.SFT06
+#
+#=============  Exec SRAC code with the following input data ===================
+#
+cd ##WKDR
+cat - << END_DATA | ##LM >& ##OUTLST
+FUL1 : Case name (A4)
+UO2 pin cell problem in LWR next generation fuel benchmark (No burn-up)
+************************************************************************
+*  Benchmark Reference :
+*  A.Yamamoto, T.Ikehara, T.Ito, and E.Saji : "Benchmark Problem for
+*  Reactor Physics Study of LWR Next Generation Fuels",
+*  J. Nucl. Sci. Technol., Vol.39, No.8, pp.900-912, (2002).
+************************************************************************
+1 1 1 1 2   1 4 3 -2 1   0 0 0 0 1   2 1 0 0 kodeBurn / SRAC CONTROL
+bucklingGeometri / Geometrical buckling for P1/B1 calculation
+*- PDS files ------2---------3---------4---------5---------6---------7--
+* Note : All input line must be written in 72 columns except comments
+*        even when environmental variables are expanded.
+##HOME/SRACLIB-JDL32/pds/pfast   Old  File
+##HOME/SRACLIB-JDL32/pds/pthml   O    F
+##HOME/SRACLIB-JDL32/pds/pmcrs   O    F
+##PDS_DIR/UFAST      Scratch  Core
+##PDS_DIR/UTHERMAL   S        C
+##PDS_DIR/UMCROSS    S        C
+##PDS_DIR/MACROWRK   S        C
+##PDS_DIR/MACRO      N        C
+##PDS_DIR/FLUX       S        C
+##PDS_DIR/MICREF     S        C
+************************************************************************
+61 46  1 3 /  107 group => 4 group
+61(1)      /  Energy group structure suggested for LWR analyses
+46(1)      /
+61  / Fast 1 group
+13 16 17  / Thermal 3 group
+***** Enter one blank line after input for energy group structure
+
+***** Input for PIJ (Collision Probability Method)
+tipeGeometri 6 6 3 1   1 6 0 0 0   5 0 6 15 0   0 45 0         / Pij Control
+0 100 50 5 5 5 -1  0.0001 0.00001 0.001 1.0 10. 0.5  /
+1 1 1 2 3 3   /  R-S
+3(1)           /  X-R
+1 2 3          /  M-R
+0  satu  dua  tiga  empat  lima  enam     / RX
+****** Input for material specification
+3 / NMAT
+FUE1X01X  0 4  1000.  1.0    0.0  / 1 : Fuel  
+kodeFisil  2 0  NFisil
+kodeFertil  2 0  NFertil
+kodeBB  0 0  NBB
+kodeBP  2 0  NBP
+CLADX02X  0 8  575.0  0.1    0.0  / 8 : cladding  
+XZR00008  2 0  2.15706E-02
+XZR10008  2 0  4.74127E-03
+XZR20008  2 0  7.21869E-03
+XZR40008  2 0  7.26140E-03
+XZR60008  2 0  1.15328E-03
+XNB30008  2 0  4.27141E-04
+XSNN0008  2 0  3.41713E-04
+XFEN0008  2 0  4.27141E-05
+MOD1X03X  0 2  575.0  1.0    0.0  / 2 : moderator  
+XH01H008  0 0  4.27870E-02
+XO060008  0 0  2.13935E-02
+****** Input for cell burn-up calculation (when IC20=1)
+*stepBurnup 4 1 1 0  0 0 0 0 0  10(0)   / IBC
+*stepBurnup(levelDaya)   / Power level  (MWt/cm)
+*stepBurnup(totalTahun)
+****** Input for PEACO option
+0    / no plot
+****** Enter one blank line to terminate repeatation on calculation cases
+
+END_DATA
+#
+#========  Remove scratch files ================================================
+#
+   cd ##HOME
+   rm -r ##WKDR
+#
+#========  Remove PDS files if you don't keep them =============================
+#
+   rm -r ##PDS_DIR
+#
+#  rm -r ##PDS_DIR/UFAST
+#  rm -r ##PDS_DIR/UTHERMAL
+#  rm -r ##PDS_DIR/UMCROSS
+#  rm -r ##PDS_DIR/MACROWRK
+#  rm -r ##PDS_DIR/MACRO
+#  rm -r ##PDS_DIR/FLUX
+#  rm -r ##PDS_DIR/MICREF
+EOF
+
+# -------------------------------------------------------------------------------
+# karena karakter (`) akan error jika ditampilkan ke layar, maka saya ubah menja-
+# di ###, begitupun simbol ($).
+
+# 'sed' itu seperti find and replace, dan hasilnya dikirim ke file 1 dan 
+# sracsraccase.sh dalam folder WKDR.
+
+sed -i 's/###/`/g' WKDR/sraccase.sh
+sed -i 's/##/$/g'  WKDR/sraccase.sh
+
+# -------------------------------------------------------------------------------
+# > > > > > > > > > > > > >  SILAHKAN EDIT DISINI  < < < < < < < < < < < < < < < 
+# -------------------------------------------------------------------------------
+
+# while do ke 0
+kembali='y';
+while [ $kembali == 'y' ];
+do
+    # ini indeks untuk bahan bakar yang hanya bisa terbaca oleh SRAC
+
+    kodeOksida='XO060009';
+    kodeKarbida='XC020009';
+    kodeNitrida='XN050009';
+    kodePa='XPA10009';
+    kodeNp='XNP70009';
+    kodeU235='XU050000';
+    kodeU238='XU080000';
+    kodeU233='XU030009';
+    kodeTh232='XTH20009';
+    kodeRantaiTh='th2cm6fp50bp16T';
+    kodeRantaiU='u4cm6fp50bp16T'
+
+     
+
+    # ini adalah informasi yang diperlukan dalam perhitungan kasus
+
+    bilAvogadro=0.6022;
+    MTh232=232.038055325;
+    MU233=233.039635207;
+    MU238=238.5;
+    MU235=235.4;
+    ArO=15.9994;
+    MrO2=31.9988;
+    ArC=12;
+    ArN=14.0030740048;
+    ArPa=231.03588399;
+    ArNp=237.0482;
+    denThO2=9.64;
+    denThC=10.6;
+    denThN=11.6;
+    denUO2=10.5;
+
+# -------------------------------------------------------------------------------
+
+    tanggal=`date +%Y.%m.%d.%H.%M.%S`;
+
+# -------------------------------------------------------------------------------
+
+    # while do ke 1 
+    kembali='pilihBB';
+    while [ $kembali == 'pilihBB' ] || [ $kembali == 'pilihBP' ] || [ $kembali == 'pilihPin' ] || [ $kembali == 'pilihUkuranTeras' ];
+    do
+
+      # while do ke 1.1 untuk memilih bahan bakar
+      while [ $kembali == 'pilihBB' ];
+      do
+        clear 
+        echo "                      SELAMAT DATANG DI PROGRAM SEDERHANAKU ^^ "
+        echo
+        echo " Oleh          : PURWANTO (1147030034) "
+        echo " Jenis Program : Iterasi "
+        echo
+        echo " BAHAN BAKAR REAKTOR "
+        echo
+        echo " 1. Thorium-Uranium Oksida (Th-U O2) "
+        echo " 2. Thorium-Uranium Karbida (Th-U hC) "
+        echo " 3. Thorium-Uranium Nitrida (Th-U N) "
+        echo " 4. Uranium Oksida (UO2) "
+        echo
+        read -p " Silahkan Pilih Bahan Bakar [1-3] : " BB
+        echo
+
+        if [ $BB -eq 1 ];
+        then
+            sed 's/kodeRantaiBB/'$kodeRantaiTh'/' WKDR/sraccase.sh > WKDR/sraccasebb.sh
+            sed -i 's/kodeFisil/'$kodeU233'/' WKDR/sraccasebb.sh
+            sed -i 's/kodeFertil/'$kodeTh232'/' WKDR/sraccasebb.sh
+            sed -i 's/kodeBB/'$kodeOksida'/' WKDR/sraccasebb.sh
+            indeksBB='ThO2';
+            indeksFisil='U233';
+            Nbb='O2';
+            ArBB="$MrO2";
+            denBB="$denThO2";
+            MFertil="$MTh232";
+            MFisil="$MU233";
+            kembali='pilihBP';
+        elif [ $BB -eq 2 ];
+        then
+            sed 's/kodeRantaiBB/'$kodeRantaiTh'/' WKDR/sraccase.sh > WKDR/sraccasebb.sh
+            sed -i 's/kodeFisil/'$kodeU233'/' WKDR/sraccasebb.sh
+            sed -i 's/kodeFertil/'$kodeTh232'/' WKDR/sraccasebb.sh
+            sed -i 's/kodeBB/'$kodeKarbida'/' WKDR/sraccasebb.sh
+            indeksBB='ThC';
+            indeksFisil='U233';
+            Nbb='C';
+            ArBB="$ArC";
+            denBB="$denThC";
+            MFertil="$MTh232";
+            MFisil="$MU233";
+            kembali='pilihBP';
+        elif [ $BB -eq 3 ];
+        then
+            sed 's/kodeRantaiBB/'$kodeRantaiTh'/' WKDR/sraccase.sh > WKDR/sraccasebb.sh
+            sed -i 's/kodeFisil/'$kodeU233'/' WKDR/sraccasebb.sh
+            sed -i 's/kodeFertil/'$kodeTh232'/' WKDR/sraccasebb.sh
+            sed -i 's/kodeBB/'$kodeNitrida'/' WKDR/sraccasebb.sh
+            indeksBB='ThN';
+            indeksFisil='U233';
+            Nbb='N';
+            ArBB="$ArN";
+            denBB=$denThN;
+            MFertil="$MTh232";
+            MFisil="$MU233";
+            kembali='pilihBP';
+        elif [ $BB -eq 4 ];
+        then
+            sed 's/kodeRantaiBB/'$kodeRantaiU'/' WKDR/sraccase.sh > WKDR/sraccasebb.sh
+            sed -i 's/kodeFisil/'$kodeU235'/' WKDR/sraccasebb.sh
+            sed -i 's/kodeFertil/'$kodeU238'/' WKDR/sraccasebb.sh
+            sed -i 's/kodeBB/'$kodeOksida'/' WKDR/sraccasebb.sh
+            indeksBB='UO2';
+            indeksFisil='U235';
+            Nbb='O2';
+            ArBB="$MrO2";
+            denBB=$denUO2;
+            MFertil="$MU238";
+            MFisil="$MU235";
+            kembali='pilihBP';
+        else
+            echo
+            echo " Maaf, Masukan Angka [1-4] "
+            read -p " Tekan Enter Untuk Memilih Kembali"
+            kembali='pilihBB';
+        fi
+
+      # akhir while do ke 1.1
+      done
+
+      # while do ke 1.2 untuk memilih burnable poison
+      while [ $kembali == 'pilihBP' ];
+      do
+        clear
+        echo 
+        echo " BURNABLE POISON (BP) "
+        echo
+        echo " 1. Protactinium231 (Pa)  "
+        echo " 2. Neptunium237    (Np)  "
+        echo " 3. Kembali Pilih Bahan Bakar "
+        echo
+        read -p " Silahkan Pilih BP [1-3]  : " BP
+        echo
+
+        if [ $BP -eq 1 ];
+        then
+            indeksBP='Pa231';
+            ArBP="$ArPa";
+            sed 's/kodeBP/'$kodePa'/' WKDR/sraccasebb.sh > WKDR/sraccasebp.sh
+            kembali='pilihPin';
+        elif [ $BP -eq 2 ];
+        then
+            indeksBP='Np237';
+            ArBP="$ArNp";
+            sed 's/kodeBP/'$kodePa'/' WKDR/sraccasebb.sh > WKDR/sraccasebp.sh
+            kembali='pilihPin';
+        elif [ $BP -eq 3 ];
+        then
+            kembali='pilihBB';
+        else
+            echo
+            echo " Maaf, Masukan Angka [1-3] "
+            kembali='pilihBP';
+            read -p " Tekan Enter untuk Memilih kembali " Enter
+        fi
+
+      # akhir while do ke 1.2
+      done
+
+      # while do ke 1.3 untuk memilih pin bahan bakar
+      while [ $kembali == 'pilihPin' ];
+      do
+        clear
+        echo
+        echo " INFORMASI PIN BAHAN BAKAR"
+        echo
+        echo " Bahan Bakar : $indeksBB"
+        echo " Burnable Poison : $indeksBP"
+        echo
+        echo " 1. Atur Pin Bahan Bakar "
+        echo " 2. Kembali Pilih Bahan Bakar  "
+        echo " 3. Kembali Pilih BP"
+        echo
+        read -p " Silahkan Pilih [1-3]: " pilihanPin
+
+        if [ $pilihanPin -eq 1 ];
+        then
+
+            # while do ke 1.3.1 untuk memilih tipe geometri
+            kembali='pilihTipeGeom';
+            while [ $kembali == 'pilihTipeGeom' ];
+            do
+              clear
+              echo
+              echo " Pilih Type Geometri Sel Bahan Bakar " 
+              echo
+              echo " 1. Square (bujursangkar)"
+              echo " 2. Hexagonal (segienam)"
+              echo
+              read  -p " Silahkan Pilih [1-2]: " tipeGeometri
+
+              if [ $tipeGeometri -eq 1 ];
+              then
+                sed 's/tipeGeometri/4/' WKDR/sraccasebp.sh > WKDR/sraccasefraksi.sh
+                kembali='pilihFraksi';
+                indeksTipeGeometri='Square';
+
+              elif [ $tipeGeometri -eq 2 ];
+              then
+                sed 's/tipeGeometri/6/' WKDR/sraccasebp.sh > WKDR/sraccasefraksi.sh
+                kembali='pilihFraksi';
+                indeksTipeGeometri='Hexagonal';
+
+              else
+                echo " Mohon Maaf, Masukan Angka [1-2] "
+                read -p " Tekan Enter Untuk Memilih Kembali " Enter
+                kembali='pilihTipeGeom';
+
+              fi
+
+            # akhir while do ke 1.3.1
+            done
+              
+            echo
+            echo " Pitch = Jarak tiap pusat pin bahan bakar "
+            echo
+            read -p " Masukan Jarak Pitch (desimal dipisahkan dengan titik '.') [cm]: " jarakPitch
+
+            # while do ke 1.3.2 untuk mengatur fraksi bahan bakar
+            while [ $kembali == 'pilihFraksi' ];
+            do
+              clear
+              echo
+              echo " Tipe Geometri : $indeksTipeGeometri"
+              echo " Jarak Pitch   : $jarakPitch cm"
+              echo
+              echo " Fraksi BB = Perbandingan volume BB terhadap total ruang "
+              echo " Fraksi Moderator = Perbandingan volume Moderator terhadap total ruang"
+              echo
+              read -p " Masukan Fraksi Bahan Bakar ([1-100]%): " fraksiBB
+              let  indeksFraksiMod=100-$fraksiBB;
+              read -p " Masukan Fraksi Moderator ([1-$indeksFraksiMod]%)  : " fraksiMod
+              let fraksiClad=100-$fraksiBB-$fraksiMod;
+              let jumlahFraksi=$fraksiBB+$fraksiMod+$fraksiClad;
+              echo " Fraksi kelongsong : $fraksiClad%"
+              echo
+              echo " jumlah total Fraksi = $fraksiBB%+$fraksiMod%+$fraksiClad%"
+              echo "                     = $jumlahFraksi% "
+              read -p " Tekan Enter untuk melanjutkan " Enter
+
+              pi=3.14159;
+              if [ $tipeGeometri -eq 1 ] && [ $fraksiBB -le 100 ] && [ $fraksiBB -ge 1 ] && [ $fraksiClad -le $indeksFraksiMod ] && [ $fraksiClad -ge 1 ];
+              then
+                tiga=$(bc -l <<< "scale=4; sqrt($fraksiBB/100*$jarakPitch*$jarakPitch/$pi)")
+                empat=$(bc -l <<< "scale=4; sqrt(($fraksiBB/100+$fraksiClad/100)*$jarakPitch*$jarakPitch/$pi)")
+                kembali='pilihUkuranTeras';
+
+              elif [ $tipeGeometri -eq 2 ] && [ $fraksiBB -le 100 ] && [ $fraksiBB -ge 1 ] && [ $fraksiClad -le $indeksFraksiMod ] && [ $fraksiClad -ge 1 ];
+              then
+                tiga=$(bc -l <<< "scale=4; sqrt(sqrt(3)*$fraksiBB/100*$jarakPitch*$jarakPitch/2/$pi)")
+                empat=$(bc -l <<< "scale=4; sqrt(sqrt(3)*($fraksiBB/100+$fraksiClad/100)*$jarakPitch*$jarakPitch/2/$pi)")
+                kembali='pilihUkuranTeras';
+
+              else
+                echo
+                echo " Maaf, Masukan semua fraksi dalam range [1-100]% "
+                echo " Pastikan jumlah fraksi (BB + moderator + kelongsong) sama dengan 100 "
+                echo
+                read -p " Tekan Enter Untuk Memilih Kembali"
+                kembali='pilihFraksi';
+              fi
+
+            # akhir while do ke 1.3.2
+            done
+             
+          enam=$(bc -l <<< "scale=4; $jarakPitch/2.000")
+          satu=$(bc -l <<< "scale=4; $tiga/3")
+          dua=$(bc -l <<< "scale=4; $satu+$satu")
+          lima=$(bc -l <<< "scale=4; $enam/2+$empat/2")
+          jariJariBB=$(bc -l <<< "scale=4; 10*$tiga")
+          tebalClad=$(bc -l <<< "scale=4; 10*($empat-$tiga)")
+
+          sed -i 's/satu/'$satu'/'   WKDR/sraccasefraksi.sh
+          sed -i 's/dua/'$dua'/'     WKDR/sraccasefraksi.sh
+          sed -i 's/tiga/'$tiga'/'   WKDR/sraccasefraksi.sh
+          sed -i 's/empat/'$empat'/' WKDR/sraccasefraksi.sh
+          sed -i 's/lima/'$lima'/'   WKDR/sraccasefraksi.sh
+          sed -i 's/enam/'$enam'/'   WKDR/sraccasefraksi.sh
+
+
+        elif [ $pilihanPin -eq 2 ];
+        then
+          kembali='pilihBB';
+
+        elif [ $pilihanPin -eq 3 ];
+        then
+          kembali='pilihBP';
+
+        else
+          echo
+          echo " Maaf, Masukan Angka [1-3] "
+          read -p "Tekan Enter untuk memilih kembali " Enter
+          kembali='pilihPin';
+
+        fi
+
+      # akhir while do ke 1.3
+      done
+
+      # while do 1.4 Untuk mengatur ukuran teras
+      while [ $kembali == 'pilihUkuranTeras' ];
+      do
+        clear
+        echo
+        echo " INFORMASI BAHAN BAKAR "
+        echo 
+        echo " Bahan Bakar       : $indeksBB "
+        echo " Burnable Poison   : $indeksBP "
+        echo " Tipe Geometri Sel : $indeksTipeGeometri"
+        echo " Jarak Pitch       : $jarakPitch cm"
+        echo " Fraksi BB-Cld-Mod : [$fraksiBB-$fraksiClad-$fraksiMod]%"
+        echo
+        echo " 1. Atur Daya dan Ukuran Teras "
+        echo " 2. Atur Kembali Pin Bahan Bakar "
+        echo " 3. Atur Kembali Burnable Poison "
+        echo " 4. Atur Kembali Bahan Bakar  "
+        echo
+        read -p " Silahkan Pilih [1-4]: " pilihUkuranTeras
+
+        if [ $pilihUkuranTeras -eq 1 ];
+        then
+
+          read -p " Masukan Daya Termal Keluaran Reaktor [MWt]: " inputDaya
+          read -p " Masukan Ukuran Tinggi Aktif Teras [cm]: " inputTinggiTeras
+          read -p " Masukan Ukuran Diameter Aktif Teras [cm]: " inputDiameterTeras
+          echo
+
+          if [ $inputTinggiTeras -lt $inputDiameterTeras ];
+          then
+            indeksJenisTeras='Pancake';
+            kembali='pilihIterasi';
+
+          elif [ $inputTinggiTeras -gt $inputDiameterTeras ];
+          then
+            indeksJenisTeras='Tall';
+            kembali='pilihIterasi';
+
+          elif [ $inputTinggiTeras -eq $inputDiameterTeras ];
+          then
+            indeksJenisTeras='Balance';
+            kembali='pilihIterasi';
+
+          else
+            echo " Angka yang anda masukan salah "
+            read -p " Tekan Enter Untuk Mengatur Kembali" Enter
+            kembali='pilihUkuranTeras';
+
+          fi 
+
+          vo=2.405;
+          #Perhitungan
+          jariJariTeras=$(bc -l <<< "scale=5; $inputDiameterTeras/2")
+          bucklingGeometri=$(bc -l <<< "scale=9; ($vo/($jariJariTeras*$jariJariTeras))+($pi/($inputTinggiTeras*$inputTinggiTeras))")
+          luasTeras=$(bc -l <<< "scale=5; $pi*$jariJariTeras*$jariJariTeras")
+          volumeTeras=$(bc -l <<< "scale=5; $luasTeras*$inputTinggiTeras")
+          densitasDaya=$(bc -l <<< "scale=10; $inputDaya/$volumeTeras")
+          konvDensitasDaya=$(bc -l <<< "scale=3; $densitasDaya*1000000")
+          levelDaya=$(bc -l <<< "scale=10; $densitasDaya*$jarakPitch*$jarakPitch")
+          jumlahPinBB=$(bc -l <<< "scale=0; $luasTeras/$jarakPitch/$jarakPitch")
+
+          # mengubah bucling dan level daya dari file srac
+          sed 's/bucklingGeometri/'$bucklingGeometri'/' WKDR/sraccasefraksi.sh > WKDR/sraccasebuckling.sh
+          sed -i 's/levelDaya/'$levelDaya'/' WKDR/sraccasebuckling.sh
+
+        elif [ $pilihUkuranTeras -eq 2 ];
+        then
+          kembali='pilihPin';
+
+        elif [ $pilihUkuranTeras -eq 3 ];
+        then
+          kembali='pilihBP';
+
+        elif [ $pilihUkuranTeras -eq 4 ];
+        then
+          kembali='pilihBB';
+
+        else
+          echo 
+          echo " Maaf, Pilih Angka [1-4] "
+          read -p " Tekan Enter untuk Memilih kembali " Enter 
+          kembali='pilihUkuranTeras';
+
+        fi
+
+      # akhir while do ke 1.4
+      done
+
+      # while do ke 1.5 untuk memilih iterasi
+      while [ $kembali == 'pilihIterasi' ];
+      do
+        clear
+        echo
+        echo " PILIHAN UNTUK ITERASI  "
+        echo
+        echo " 1. Iterasi Bahan Fisil $indeksFisil "
+        echo " 2. Iterasi Burnable Poison $indeksBP "
+        echo " 3. Kembali Atur Pin BB "
+        echo " 4. Kembali Atur Ukuran Teras"
+        echo
+        read -p " Pilih yang Akan di Iterasi [1-4] : " pilihanIterasi
+        echo
+
+        if [ $pilihanIterasi -eq 1 ];
+        then
+            read -p " Masukan Enrichment Awal $indeksFisil untuk Iterasi   : " awalIterasi
+            read -p " Masukan Enrichment Akhir Iterasi             : " akhirIterasi
+            read -p " Masukan Selisih per-Itrerasi                 : " selisihIterasi
+            echo
+            read -p " Masukan Enrichment BP $indeksBP  : " jumlahBP
+            indeksIterasi="Bahan Fisil $indeksFisil";
+            indeksNonIterasi="$indeksBP $jumlahBP% [w/o]";
+            kembali='pilihKodeBurn';
+
+        elif [ $pilihanIterasi -eq 2 ];
+        then
+
+            read -p " Masukan Enrichment $indeksFisil dalam [w/o] : " jumlahFisil
+            echo
+            read -p " Masukan Enrichment Awal $indeksBP untuk Iterasi : " awalIterasi
+            read -p " Masukan Enrichment Akhir $indeksBP iterasi      : " akhirIterasi
+            read -p " Masukan Selisih per-Itreasi                 : " selisihIterasi
+            indeksIterasi='Burnable Poison';
+            indeksNonIterasi=" Enrichment $indeksFisil $jumlahFisil% [w/o] ";
+            kembali='pilihKodeBurn';
+
+        elif [ $pilihanIterasi -eq 3 ];
+        then
+            kembali='pilihPin';
+
+        elif [ $pilihanIterasi -eq 4 ];
+        then
+            kembali='pilihUkuranTeras';
+
+        else
+            echo " Maaf, Pilih Angka [1-3] "
+            read -p " Tekan Enter untuk Memilih Kembali" Enter
+            kembali='pilihIterasi';
+        fi
+
+      # akhir while do 1.5
+      done
+
+      # while do ke 1.6 memilih kode burnup
+      while [ $kembali == 'pilihKodeBurn' ];
+      do
+        echo
+        read -p " Lakukan Perhitungan Burnup ? [y/t]: " kodeBurn
+        echo
+        if [ $kodeBurn == 'y' ] || [ $kodeBurn == 'Y' ];
+        then
+            read -p " Masukan total step burnup (contoh 12) :" stepBurnup
+            read -p " Masukan total tahun operasi reaktor (contoh 12) :" totalTahun
+
+            let totalTahun=totalTahun*360;
+            let totalHari=totalTahun/stepBurnup;
+
+            indeksBurn="Ya, dengan $stepBurnup Step Burnup Periode $totalTahun Hari";
+
+            sed 's/kodeBurn/1/' WKDR/sraccasebuckling.sh > WKDR/sraccaseburn.sh
+            sed -i 's/'*stepBurnup'/'$stepBurnup'/' WKDR/sraccaseburn.sh
+            sed -i 's/totalTahun/'$totalHari'/'     WKDR/sraccaseburn.sh
+            kembali='t';
+
+        elif [ $kodeBurn == 't' ] || [ $kodeBurn == 'T' ];
+        then
+            indeksBurn='Tidak'
+            sed 's/kodeBurn/0/' WKDR/sraccasebuckling.sh > WKDR/sraccaseburn.sh
+            sed -i 's/'*stepBurnup'/*12/' WKDR/sraccaseburn.sh
+            sed -i 's/totalTahun/360/'   WKDR/sraccaseburn.sh
+            kembali='t';
+
+        else
+            echo " Maaf, Tekan [y/t] "
+            kembali='pilihKodeBurn';
+
+        fi
+
+      # akhir while do ke 1.6 
+      done
+
+
+    # akhir while do ke 1
+    done
+
+    clear #Ending input
+    echo
+    echo " PROGRAM INI AKAN MENGHITUNG KEKRITISAN UNTUK REAKTOR DENGAN SPESIFIKASI "
+    echo
+    echo " Bahan Bakar        : $indeksBB dengan "
+    echo "                     - Material Fisil $indeksFisil & Burnable Poison $indeksBP"
+    echo "                     - Densitas Bahan $denBB g/cm^3 "
+    echo "                     - Fraksi [BB-Mod-Clad] $fraksiBB%-$fraksiMod%-$fraksiClad% "
+    echo "                     - Jari-jari Bahan Bakar $jariJariBB mm"
+    echo "                     - Tebal Kelongsong (Cladding) $tebalClad mm"
+    echo "                     - Geometri Sel Bahan Bakar $indeksTipeGeometri"
+    echo
+    echo " Data Teras         : Bentuk Teras $indeksJenisTeras dengan "
+    echo "                     - Tinggi teras $inputTinggiTeras cm"
+    echo "                     - Diameter teras $inputDiameterTeras cm"
+    echo "                     - Densitas daya $konvDensitasDaya Watt/cc "
+    echo "                     - Level Daya $levelDaya MW/cm"
+    echo "                     - Jumlah Pin Bahan Bakar $jumlahPinBB buah"
+    echo
+    echo " Metode Perhitungan : SRAC-PIJ dengan "
+    echo "                     - Iterasi untuk $indeksIterasi $awalIterasi%-$akhirIterasi% [w/o]"
+    echo "                     - Selisih iterasi $selisihIterasi "
+    echo "                     - Variabel Tetap untuk $indeksNonIterasi " 
+    echo " Status Burnup       - $indeksBurn "
+    echo
+
+
+    konvAwalIterasi=$(bc -l <<< "scale=2; $awalIterasi*1000.00")
+    konvAkhirIterasi=$(bc -l <<< "scale=2; $akhirIterasi*1000.00") 
+    konvSelisihIterasi=$(bc -l <<< "scale=2; $selisihIterasi*1000.00") 
+
+    echo "mulaiIterasi=$konvAwalIterasi;"    >   WKDR/awal.txt
+    echo "selesaiIterasi=$konvAkhirIterasi;" >   WKDR/akhir.txt
+    echo "rangeIterasi=$konvSelisihIterasi;" >   WKDR/selisih.txt
+    sed -i 's/0.00//'  WKDR/awal.txt
+    sed -i 's/0.00//'  WKDR/akhir.txt
+    sed -i 's/0.00//'  WKDR/selisih.txt
+
+    source WKDR/awal.txt
+    source WKDR/akhir.txt
+    source WKDR/selisih.txt
+
+    read -p " Tekan Enter untuk Memulai Perhitungan " mulai
+    echo " -------> Memulai Perhitungan "
+
+    # while do ke 2 memulai perhitungan bahan bakar
+    while [ $mulaiIterasi -le $selesaiIterasi ];
+    do
+         
+         BB=$BB;
+         BP=$BP;
+         pilihanIterasi=$pilihanIterasi;
+         if [ $pilihanIterasi -eq 1 ];
+         then
+            jumlahFisil=$awalIterasi;
+            jumlahBP=$jumlahBP;
+         else
+            jumlahBP=$awalIterasi;
+            jumlahFisil=$jumlahFisil;
+         fi
+         #Perhitungan fisaka
+         persenFisil=$(bc -l <<< "scale=5; $jumlahFisil/100.00000")
+         persenBP=$(bc -l <<< "scale=5; $jumlahBP/100.00000")
+         persenFertil=$(bc -l <<< "scale=5; 1.00000-$persenFisil-$persenBP")
+         MrBB=$(bc -l <<< "scale=9; $persenFisil*$MFisil+$persenBP*$ArBP+$persenFertil*$MFertil+$ArBB")
+         NFisil=$(bc -l <<< "scale=9; 0.92*$persenFisil*$denBB*$bilAvogadro/$MrBB") 
+         NFertil=$(bc -l <<< "scale=9; 0.92*$persenFertil*$denBB*$bilAvogadro/$MrBB")
+         NBP=$(bc -l <<< "scale=9; 0.92*$persenBP*$denBB*$bilAvogadro/$MrBB")
+         NBB=$(bc -l <<< "scale=9; 0.92*$NFisil+0.92*$NFertil+0.92*$NBP")
+
+         echo
+         echo " Perhitungan : $indeksBB $jumlahFisil% U233"
+         echo "             : $indeksBP $jumlahBP% "
+         echo "             : Berat Relatif $indeksBB $MrBB "
+
+         if [ $BB -eq 1 ] || [ $BB -eq 4 ];
+         then
+             NO2=$(bc -l <<< "scale=9; $NBB*2");
+             sed 's/NBB/'$NO2'/'       WKDR/sraccaseburn.sh > WKDR/sraccaserun.sh
+
+         elif [ $BB -eq 2 ] || [ $BB -eq 3 ];
+         then
+             sed 's/NBB/'$NBB'/'        WKDR/sraccaseburn.sh > WKDR/sraccaserun.sh
+
+         fi
+
+         namaKasus="$indeksBB"_"$jumlahFisil%"$indeksFisil"_$jumlahBP%$indeksBP"; #Inti
+         sed -i 's/namaKasus/'$namaKasus'/'       WKDR/sraccaserun.sh
+
+         sed -i 's/NBP/'$NBP'/'                   WKDR/sraccaserun.sh
+         sed -i 's/NFisil/'$NFisil'/'             WKDR/sraccaserun.sh
+         sed 's/NFertil/'$NFertil'/'              WKDR/sraccaserun.sh > fileinput/$namaKasus.sh
+
+
+         chmod u+x fileinput/$namaKasus.sh
+         ./fileinput/$namaKasus.sh
+
+         # manajemen keluaran SRAC
+         cp ~/SRAC/smpl/outp/$namaKasus.*.SFT99 fileoutput
+         cp ~/SRAC/smpl/outp/$namaKasus.*.SFT06 fileoutput
+         cp ~/SRAC/smpl/outp/$namaKasus.*.SFT98 fileoutput
+         rm ~/SRAC/smpl/outp/$namaKasus.*.SFT99
+         rm ~/SRAC/smpl/outp/$namaKasus.*.SFT06
+         rm ~/SRAC/smpl/outp/$namaKasus.*.SFT98
+
+         echo "#StepBurnup K-Eff"                 > filedata/keff_$namaKasus.txt
+         awk '/K-EFF=/ { print $2;}' fileoutput/$namaKasus.*.SFT99 > WKDR/1
+         cat -n                         WKDR/1 >> filedata/keff_$namaKasus.txt
+         
+
+# ---------------------------------------------------------------------------------
+         awalIterasi=$(bc -l <<< "scale=5; $awalIterasi+$selisihIterasi");
+         let mulaiIterasi=$mulaiIterasi+$rangeIterasi;
+# ---------------------------------------------------------------------------------
+    # akhir while do ke 2
+    done
+    echo
+    echo " -------> Perhitungan Selesai "
+    read -p "Ingin Menghitung Ulang? [y/t] : " kembali
+
+# akhir while do ke 0
+done
+clear
+echo
+echo " Terimakasih,"
+read -p " Tekan Enter Untuk Keluar " keluar
+rm -rf WKDR
